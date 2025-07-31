@@ -1,9 +1,12 @@
 #!/bin/bash
 
+# constants
+PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # sources
-source ./ec2.sh
-source ./security_group.sh
-source ./key.sh
+source "$PREFIX/ec2.sh"
+source "$PREFIX/security_group.sh"
+source "$PREFIX/key.sh"
 
 # functions
 create_image_from_ec2_instance() {

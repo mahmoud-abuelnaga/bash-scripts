@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# constants
+PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # sources
-source ../../general/functions/constants.sh
+source "$PREFIX/../../general/functions/constants.sh"
 
 # functions
 create_cache_subnet_group() {

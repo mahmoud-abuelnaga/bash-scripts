@@ -1,8 +1,11 @@
 #!/bin/bash
 
+# constants
+PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # sources
-source ../../general/functions/ssh.sh
-source ../../general/functions/constants.sh
+source "$PREFIX/../../general/functions/ssh.sh"
+source "$PREFIX/../../general/functions/constants.sh"
 
 # functions
 create_ec2_instance() {

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# constants
+PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # sources
 
 

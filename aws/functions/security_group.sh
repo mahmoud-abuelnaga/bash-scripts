@@ -1,8 +1,11 @@
 #!/bin/bash
 
+# constants
+PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # sources
-source ../../general/functions/constants.sh
-source ../../general/functions/general.sh
+source "$PREFIX/../../general/functions/constants.sh"
+source "$PREFIX/../../general/functions/general.sh"
 
 # functions
 create_sg() {
