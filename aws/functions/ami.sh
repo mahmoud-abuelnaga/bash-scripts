@@ -103,9 +103,9 @@ create_ami_with_live_script() {
     ssh_add_host_to_known_hosts "$public_ip" || return "$?"
 
     if [[ "$use_sudo" -eq 1 ]]; then
-        ssh -i "$key_name.pem" "$user@$public_ip" "sudo bash -s" <"$live_script_path" || return "$?"
+        ssh -i "$key_name.pem" "$user@$public_ip" "sudo bash -s" <"$live_script_path" >&2 || return "$?"
     else
-        ssh -i "$key_name.pem" "$user@$public_ip" "bash -s" <"$live_script_path" || return "$?"
+        ssh -i "$key_name.pem" "$user@$public_ip" "bash -s" <"$live_script_path" >&2 || return "$?"
     fi
 
     local image_id
@@ -113,9 +113,9 @@ create_ami_with_live_script() {
     wait_till_image_is_available "$image_id" || return "$?"
     echo "$image_id"
 
-    terminate_ec2_instances "$instance_id" || return "$?"
+    terminate_ec2_instances "$instance_id" >&2 || return "$?"
     wait_till_ec2_instance_is_terminated "$instance_id" || return "$?"
-    delete_sg "$sg_id" || return "$?"
-    delete_key_pair "$key_name" || return "$?"
+    delete_sg "$sg_id" >&2 || return "$?"
+    delete_key_pair "$key_name" >&2 || return "$?"
     rm -f "$key_name.pem"
 }
