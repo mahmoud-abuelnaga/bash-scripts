@@ -119,3 +119,37 @@ create_ami_with_live_script() {
     delete_key_pair "$key_name" >&2 || return "$?"
     rm -f "$key_name.pem"
 }
+
+deregister_ami() {
+    local ami_id="$1"
+    if [[ -z "$ami_id" ]]; then
+        echo "invalid function call: 'deregister_ami' is called with no ami_id" >&2
+        return 1
+    fi
+
+    aws ec2 deregister-image --image-id "$ami_id" || return "$?"
+}
+
+delete_ami_snapshot() {
+    local ami_id="$1"
+    if [[ -z "$ami_id" ]]; then
+        echo "invalid function call: 'delete_ami_snapshot' is called with no ami_id" >&2
+        return 1
+    fi
+
+    local snapshot_id
+    snapshot_id=$(aws ec2 describe-snapshots --query "Snapshots[?Description!='null' && contains(Description, '$ami_id')].[SnapshotId]" --output text) || return "$?"
+
+    aws ec2 delete-snapshot --snapshot-id "$snapshot_id" || return "$?"
+}
+
+deregister_ami_and_delete_its_snapshot() {
+    local ami_id="$1"
+    if [[ -z "$ami_id" ]]; then
+        echo "invalid function call: 'deregister_ami_and_delete_its_snapshot' is called with no ami_id" >&2
+        return 1
+    fi
+
+    deregister_ami "$ami_id" || return "$?"
+    delete_ami_snapshot "$ami_id" || return "$?"
+}
