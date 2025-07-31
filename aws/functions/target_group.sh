@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # constants
-PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+TARGET_GROUP_PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # sources
-source "$PREFIX/../../general/functions/constants.sh"
+source "$TARGET_GROUP_PREFIX/../../general/functions/constants.sh"
 
 # functions
 create_target_group() {

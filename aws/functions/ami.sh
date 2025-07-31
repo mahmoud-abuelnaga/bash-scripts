@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # constants
-PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+AMI_PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # sources
-source "$PREFIX/ec2.sh"
-source "$PREFIX/security_group.sh"
-source "$PREFIX/key.sh"
+source "$AMI_PREFIX/ec2.sh"
+source "$AMI_PREFIX/security_group.sh"
+source "$AMI_PREFIX/key.sh"
 
 # functions
 create_image_from_ec2_instance() {

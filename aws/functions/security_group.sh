@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # constants
-PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SECURITY_GROUP_PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # sources
-source "$PREFIX/../../general/functions/constants.sh"
-source "$PREFIX/../../general/functions/general.sh"
+source "$SECURITY_GROUP_PREFIX/../../general/functions/constants.sh"
+source "$SECURITY_GROUP_PREFIX/../../general/functions/general.sh"
 
 # functions
 create_sg() {

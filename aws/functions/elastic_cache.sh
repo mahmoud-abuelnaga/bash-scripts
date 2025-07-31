@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # constants
-PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ELASTIC_CACHE_PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # sources
-source "$PREFIX/../../general/functions/constants.sh"
+source "$ELASTIC_CACHE_PREFIX/../../general/functions/constants.sh"
 
 # functions
 create_cache_subnet_group() {

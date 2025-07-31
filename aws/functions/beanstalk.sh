@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # constants
-PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+BEANSTALK_PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # sources
-source "$PREFIX/load_balancer.sh"
-source "$PREFIX/ec2.sh"
+source "$BEANSTALK_PREFIX/load_balancer.sh"
+source "$BEANSTALK_PREFIX/ec2.sh"
 
 # functions
 create_elastic_beanstalk_app() {
