@@ -4,7 +4,9 @@
 SECURITY_GROUP_PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # sources
+# shellcheck disable=SC1091
 source "$SECURITY_GROUP_PREFIX/../../general/functions/constants.sh"
+# shellcheck disable=SC1091
 source "$SECURITY_GROUP_PREFIX/../../general/functions/general.sh"
 
 # functions
@@ -294,3 +296,67 @@ delete_sg() {
 
     aws ec2 delete-security-group --group-id "$sg_id" || return "$?"
 }
+
+disallow_incoming_traffic_on_port_from_another_sg() {
+    local sg_id="$1"
+    local protocol="$2"
+    local port="$3"
+    local source_sg="$4"
+
+    if [[ -z "$sg_id" ]]; then
+        echo "invalid function call: 'disallow_incoming_traffic_on_port_from_another_sg' is called with no security group id" >&2
+        return 1
+    fi
+
+    if [[ -z "$protocol" ]]; then
+        echo "invalid function call: 'disallow_incoming_traffic_on_port_from_another_sg' is called with no protocol" >&2
+        return 1
+    fi
+
+    if [[ -z "$port" ]]; then
+        echo "invalid function call: 'disallow_incoming_traffic_on_port_from_another_sg' is called with no port" >&2
+        return 1
+    fi
+
+    if [[ -z "$source_sg" ]]; then
+        echo "invalid function call: 'disallow_incoming_traffic_on_port_from_another_sg' is called with no other security group id" >&2
+        return 1
+    fi
+
+    aws ec2 revoke-security-group-ingress \
+        --group-id "$sg_id" \
+        --ip-permissions "IpProtocol=$protocol,FromPort=$port,ToPort=$port,UserIdGroupPairs=[{GroupId=$source_sg}]" >"$DEV_NULL" || return "$?"
+}
+
+allow_connection_to_mysql_from_another_sg() {
+    local sg_id="$1"
+    local source_sg="$2"
+    if [[ -z "$sg_id" ]]; then
+        echo "invalid function call: 'allow_connection_to_mysql_from_another_sg' is called with no security group id" >&2
+        return 1
+    fi
+
+    if [[ -z "$source_sg" ]]; then
+        echo "invalid function call: 'allow_connection_to_mysql_from_another_sg' is called with no source security group id" >&2
+        return 1
+    fi
+
+    allow_incoming_traffic_on_port_from_another_sg "$sg_id" "tcp" "3306" "$source_sg"
+}
+
+disallow_connection_to_mysql_from_another_sg() {
+    local sg_id="$1"
+    local source_sg="$2"
+    if [[ -z "$sg_id" ]]; then
+        echo "invalid function call: 'disallow_connection_to_mysql_from_another_sg' is called with no security group id" >&2
+        return 1
+    fi
+
+    if [[ -z "$source_sg" ]]; then
+        echo "invalid function call: 'disallow_connection_to_mysql_from_another_sg' is called with no source security group id" >&2
+        return 1
+    fi
+
+    disallow_incoming_traffic_on_port_from_another_sg "$sg_id" "tcp" "3306" "$source_sg" || return "$?"
+}
+

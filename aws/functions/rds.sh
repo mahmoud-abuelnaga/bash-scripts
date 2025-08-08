@@ -1,10 +1,15 @@
 #!/bin/bash
 
 # constants
-
+RDS_PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # sources
-
+# shellcheck disable=SC1091
+source "$RDS_PREFIX/ec2.sh"
+# shellcheck disable=SC1091
+source "$RDS_PREFIX/vpc.sh"
+# shellcheck disable=SC1091
+source "$RDS_PREFIX/security_group.sh"
 
 # functions
 create_rds_subnet_group() {
@@ -239,7 +244,89 @@ get_rds_vpc_id() {
     echo "$vpc_id"
 }
 
-# intialize_database() {
-#     local rds_identifier="$1"
+get_rds_sgs() {
+    local rds_identifier="$1"
+    if [[ -z "$rds_identifier" ]]; then
+        echo "invalid function call: 'get_rds_sg' is called with no rds_identifier" >&2
+        return 1
+    fi
 
-# }
+    local sgs
+    sgs=$(aws rds describe-db-instances \
+            --db-instance-identifier "$rds_identifier" \
+            --query 'DBInstances[].VpcSecurityGroups[].VpcSecurityGroupId' \
+            --output text) || return "$?"
+
+    echo "$sgs"
+}
+
+intialize_database() {
+    local rds_identifier="$1"
+    local username="$2"
+    local password="$3"
+    local sql_script_path="$4"
+    local database_to_execute_script_on="$5"
+    local db_type="$6"
+
+    if [[ -z "$rds_identifier" ]]; then
+        echo "invalid function call: 'intialize_database' is called with no rds_identifier" >&2
+        return 1
+    fi
+
+    if [[ -z "$username" ]]; then
+        echo "invalid function call: 'intialize_database' is called with no username" >&2
+        return 1
+    fi
+
+    if [[ -z "$password" ]]; then
+        echo "invalid function call: 'intialize_database' is called with no password" >&2
+        return 1
+    fi
+
+    if [[ -z "$sql_script_path" ]]; then
+        echo "invalid function call: 'intialize_database' is called with no sql_script_path" >&2
+        return 1
+    fi
+
+    if [[ -z "$db_type" ]]; then
+        echo "invalid function call: 'intialize_database' is called with no db_type" >&2
+        return 1
+    fi
+
+    if [[ "$db_type" != "mysql" ]]; then
+        echo "invalid function call: 'intialize_database' only supports mysql" >&2
+        return 1
+    fi
+
+    local endpoint
+    endpoint=$(get_rds_endpoint "$rds_identifier") || return "$?"
+
+    local sgs
+    sgs=$(get_rds_sgs "$rds_identifier") || return "$?"
+    local sgs_arr=()
+    read -ra sgs_arr <<< "$sgs"
+    local sel_sg="${sgs_arr[0]}"
+
+    local vpc_id
+    vpc_id=$(get_rds_vpc_id "$rds_identifier") || return "$?"
+
+    local public_subnets_ids
+    public_subnets_ids=$(get_public_subnets_of_vpc "$vpc_id") || return "$?"
+    local public_subnets_ids_arr=()
+    read -ra public_subnets_ids_arr <<< "$public_subnets_ids"
+    local sel_public_subnet_id="${public_subnets_ids_arr[0]}"
+    
+    local jumper_server_details
+    jumper_server_details=$(create_ubuntu_jumper_server_with_mysql_client "" "$vpc_id" "$sel_public_subnet_id") || return "$?"
+
+    local jumper_server_id jumper_server_sg jumper_server_key_name jumper_server_public_ip
+    read -r jumper_server_id jumper_server_sg jumper_server_key_name jumper_server_public_ip <<< "$jumper_server_details" || return "$?"
+
+    allow_connection_to_mysql_from_another_sg "$sel_sg" "$jumper_server_sg" || return "$?"
+    scp -i "$jumper_server_key_name.pem" "$sql_script_path" "ubuntu@$jumper_server_public_ip:/tmp/db.sql" >&2 || return "$?"
+    ssh -i "$jumper_server_key_name.pem" "ubuntu@$jumper_server_public_ip" "mysql -h $endpoint -u $username -p$password $database_to_execute_script_on < /tmp/db.sql" >&2 || return "$?"
+    disallow_connection_to_mysql_from_another_sg "$sel_sg" "$jumper_server_sg" || return "$?"
+
+    delete_jumper_server "$jumper_server_id" || return "$?"
+    rm -f "$jumper_server_key_name.pem"
+}

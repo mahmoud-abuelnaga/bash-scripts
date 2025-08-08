@@ -187,7 +187,7 @@ create_jumper_server() {
     create_key_pair "$key_name" || return "$?"
 
     local sg_id
-    sg_id=$(create_security_group "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$vpc_id") || return "$?"
+    sg_id=$(create_sg "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$vpc_id") || return "$?"
     allow_ssh_from_my_ip_for_sg "$sg_id" || return "$?"
 
     local instance_id
@@ -203,7 +203,7 @@ create_jumper_server() {
 }
 
 create_ubuntu_jumper_server_with_mysql_client() {
-    local ami_id="$1"
+    local ami_id="${1:-ami-0a87a69d69fa289be}"
     local vpc_id="$2"
     local subnet_id="$3"
 
@@ -222,9 +222,50 @@ create_ubuntu_jumper_server_with_mysql_client() {
         return 1
     fi
 
+    local jumper_server_details
+    jumper_server_details=$(create_jumper_server "$ami_id" "$vpc_id" "$subnet_id") || return "$?"
+
     local instance_id sg_id key_name public_ip
-    read -r instance_id sg_id key_name public_ip <<< "$(create_jumper_server "$ami_id" "$vpc_id" "$subnet_id")" || return "$?"
-    ssh -i "$key_name.pem" "ubuntu@$public_ip" "sudo apt update && sudo apt upgrade && sudo apt-get install -y mysql-client" || return "$?"
+    read -r instance_id sg_id key_name public_ip <<< "$jumper_server_details" || return "$?"
+    ssh -i "$key_name.pem" "ubuntu@$public_ip" "sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install -y mysql-client" >&2 || return "$?"
 
     echo "$instance_id" "$sg_id" "$key_name" "$public_ip"
+}
+
+get_instance_key_name() {
+    local instance_id="$1"
+    if [[ -z "$instance_id" ]]; then
+        echo "invalid function call: 'get_instance_key_name' is called with no instance_id" >&2
+        return 1
+    fi
+
+    local key_name
+    key_name=$(aws ec2 describe-instances \
+                    --instance-id "$instance_id" \
+                    --query "Reservations[].Instances[].KeyName" \
+                    --output text) || return "$?"
+
+    echo "$key_name"
+}
+
+delete_jumper_server() {
+    local instance_id="$1"
+    if [[ -z "$instance_id" ]]; then
+        echo "invalid function call: 'delete_jumper_server' is called with no instance_id" >&2
+        return 1
+    fi
+
+    local key_name
+    key_name=$(get_instance_key_name "$instance_id") || return "$?"
+    echo "key_name: $key_name" >&2
+
+    local sg_id
+    sg_id=$(get_ec2_instance_sg_ids "$instance_id") || return "$?"
+    echo "sg_id: $sg_id" >&2
+
+    terminate_ec2_instances "$instance_id" || return "$?"
+    wait_till_ec2_instance_is_terminated "$instance_id" || return "$?"
+
+    delete_key_pair "$key_name" > "/dev/null" || return "$?"
+    delete_sg "$sg_id" > "/dev/null" || return "$?"
 }
