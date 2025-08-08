@@ -4,8 +4,14 @@
 EC2_PREFIX="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # sources
+# shellcheck disable=SC1091
 source "$EC2_PREFIX/../../general/functions/ssh.sh"
+# shellcheck disable=SC1091
 source "$EC2_PREFIX/../../general/functions/constants.sh"
+# shellcheck disable=SC1091
+source "$EC2_PREFIX/key.sh"
+# shellcheck disable=SC1091
+source "$EC2_PREFIX/security_group.sh"
 
 # functions
 create_ec2_instance() {
@@ -154,4 +160,71 @@ wait_till_ec2_instance_is_terminated() {
     fi
 
     aws ec2 wait instance-terminated --instance-ids "$instance_id" || return "$?"
+}
+
+create_jumper_server() {
+    local ami_id="$1"
+    local vpc_id="$2"
+    local subnet_id="$3"
+
+    if [[ -z "$ami_id" ]]; then
+        echo "invalid function call: 'create_jumper_server' is called with no ami_id" >&2
+        return 1
+    fi
+
+    if [[ -z "$vpc_id" ]]; then
+        echo "invalid function call: 'create_jumper_server' is called with no vpc_id" >&2
+        return 1
+    fi
+
+    if [[ -z "$subnet_id" ]]; then
+        echo "invalid function call: 'create_jumper_server' is called with no subnet_id" >&2
+        return 1
+    fi
+
+    local key_name
+    key_name=$(openssl rand -hex 32)
+    create_key_pair "$key_name" || return "$?"
+
+    local sg_id
+    sg_id=$(create_security_group "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$vpc_id") || return "$?"
+    allow_ssh_from_my_ip_for_sg "$sg_id" || return "$?"
+
+    local instance_id
+    instance_id=$(create_ec2_instance "$ami_id" "t2.micro" "$key_name" "$sg_id" "$(openssl rand -hex 32)" "1" "" "$subnet_id" "") || return "$?"
+    wait_till_ec2_instance_is_running "$instance_id" || return "$?"
+    sleep 60
+
+    local public_ip
+    public_ip=$(get_instance_public_ip "$instance_id") || return "$?"
+    ssh_add_host_to_known_hosts "$public_ip" || return "$?"
+
+    echo "$instance_id" "$sg_id" "$key_name" "$public_ip"
+}
+
+create_ubuntu_jumper_server_with_mysql_client() {
+    local ami_id="$1"
+    local vpc_id="$2"
+    local subnet_id="$3"
+
+    if [[ -z "$ami_id" ]]; then
+        echo "invalid function call: 'create_ubuntu_jumper_server_with_mysql_client' is called with no ami_id" >&2
+        return 1
+    fi
+
+    if [[ -z "$vpc_id" ]]; then
+        echo "invalid function call: 'create_ubuntu_jumper_server_with_mysql_client' is called with no vpc_id" >&2
+        return 1
+    fi
+
+    if [[ -z "$subnet_id" ]]; then
+        echo "invalid function call: 'create_ubuntu_jumper_server_with_mysql_client' is called with no subnet_id" >&2
+        return 1
+    fi
+
+    local instance_id sg_id key_name public_ip
+    read -r instance_id sg_id key_name public_ip <<< "$(create_jumper_server "$ami_id" "$vpc_id" "$subnet_id")" || return "$?"
+    ssh -i "$key_name.pem" "ubuntu@$public_ip" "sudo apt update && sudo apt upgrade && sudo apt-get install -y mysql-client" || return "$?"
+
+    echo "$instance_id" "$sg_id" "$key_name" "$public_ip"
 }

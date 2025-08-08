@@ -222,3 +222,24 @@ wait_for_rds_instance() {
 
     aws rds wait db-instance-available --db-instance-identifier "$rds_identifier" || return "$?"
 }
+
+get_rds_vpc_id() {
+    local rds_identifier="$1"
+    if [[ -z "$rds_identifier" ]]; then
+        echo "invalid function call: 'get_rds_vpc_id' is called with no rds_identifier" >&2
+        return 1
+    fi
+
+    local vpc_id
+    vpc_id=$(aws rds describe-db-instances \
+                --db-instance-identifier "$rds_identifier" \
+                --query "DBInstances[].DBSubnetGroup.VpcId" \
+                --output text) || return "$?"
+
+    echo "$vpc_id"
+}
+
+# intialize_database() {
+#     local rds_identifier="$1"
+
+# }
